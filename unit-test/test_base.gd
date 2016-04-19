@@ -24,12 +24,17 @@ func _get_test_cases():
 			test_cases.push_back(test_case)
 
 func _run_test_case(test_case):
+	setup()
+	current_test_case = test_case
 	call(test_case)
+	teardown()
 
 func _run_test_cases(tests):
-	for test_case in tests:
-		current_test_case = test_case
-		_run_test_case(test_case)
+	if tests.size() == 0:
+		_raise_error("0 test cases executed")
+	else:
+		for test_case in tests:
+			_run_test_case(test_case)
 
 func _evaluate():
 	if not has_expectations() and not _has_error():
@@ -81,7 +86,7 @@ func _print_message(message):
 
 func _raise_error(message):
 	error += 1
-	_print_message(message)
+	_print_message(str("ERROR: ", message))
 
 func _on_finish_expectation(expectation):
 	expectations.erase(expectation.get_name())
@@ -93,9 +98,9 @@ func _has_test_case(test_case):
 		ok = false
 		var message = ""
 		if not test_case.empty():
-			message = str("ERROR: ", test_case, " does not exist")
+			message = str(test_case, " does not exist")
 		else:
-			message = str("ERROR: You provided an empty test case name.")
+			message = str("You provided an empty test case name.")
 		_raise_error(message)
 	return ok
 
@@ -114,11 +119,17 @@ func _will_run_selected_test_cases():
 			ok = false
 	return ok
 
+func setup():
+	pass
+
+func teardown():
+	pass
+
 func run():
 	if run_all_test_cases:
 		_run_test_cases(test_cases)
 	elif _will_run_only_one_test_case():
-		_run_test_case(run_only_test_case)
+		_run_test_cases([run_only_test_case])
 	elif _will_run_selected_test_cases():
 		_run_test_cases(selected_test_cases)
 	_evaluate()
@@ -138,4 +149,62 @@ func assert_true(condition, message):
 func assert_false(condition, message):
 	if condition:
 		_print_fail_message(message)
+
+func assert_null(variable, message):
+	if variable != null:
+		_print_fail_message(message)
+
+func assert_not_null(variable, message):
+	if variable == null:
+		_print_fail_message(message)
+
+func assert_empty(variable, message):
+	if not variable.empty():
+		_print_fail_message(message)
+
+func assert_not_empty(variable, message):
+	if variable.empty():
+		_print_fail_message(message)
+
+func assert_equal(var1, var2, message):
+	if var1 != var2:
+		_print_fail_message(message)
+
+func assert_not_equal(var1, var2, message):
+	if var1 == var2:
+		_print_fail_message(message)
+
+func assert_equal_array(arr1, arr2, message):
+	var ok = true
+	if arr1.size() == arr2.size():
+		for i in range(arr1.size()):
+			var item1 = arr1[i]
+			var item2 = arr2[i]
+			if item1 != item2:
+				ok = false
+				break
+	else:
+		ok = false
 	
+	if not ok:
+		_print_fail_message(message)
+
+func assert_equal_dictionary(dict1, dict2, message):
+	var ok = true
+	if (dict1.size() == dict2.size() and
+		dict1.keys().size() == dict2.keys().size()):
+		for key in dict1:
+			if not dict2.has(key):
+				ok = false
+				break
+			else:
+				var val1 = dict1[key]
+				var val2 = dict2[key]
+				if val1 != val2:
+					ok = false
+					break
+	else:
+		ok = false
+	
+	if not ok:
+		_print_fail_message(message)
