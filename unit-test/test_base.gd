@@ -142,6 +142,9 @@ func add_expectation(expectation):
 func has_expectations():
 	return expectations.size() > 0
 
+func fail(message):
+	_print_fail_message(message)
+
 func assert_true(condition, message):
 	if not condition:
 		_print_fail_message(message)
