@@ -1,39 +1,45 @@
 
 extends Reference
 
-signal request_completed(request, response)
-signal did_receive_data(request, data)
-signal completed_with_error(request, response)
-signal on_finish_listening(request)
+signal request_on_complete(request, response)
+signal request_on_receive(request, data)
+signal request_on_error(request, response)
+signal request_on_stop_streaming(request)
 
-var http_response = preload("http_response.gd")
-var http_url = preload("http_url.gd")
+var HTTPResponse = preload("http_response.gd")
+var HTTPUrl = preload("http_url.gd")
 
-var client = HTTPClient.new()
-var host = "localhost"
-var port = 80
-var verify_host = true
-var use_ssl = false
-var keep_open = false
-var max_redirect = 5
-var redirect_count = 0
 var requesting = false
-
 var closed = false
-var listening = false
+var streaming = false
+var redirect_count = 0
 
-func _init(p_host):
-	host = p_host
+var client
+var host setget ,get_host
+var port setget ,get_port
+var use_ssl setget enable_ssl
+var verify_host setget should_verify_host
+var keep_open setget should_keep_open
+var max_redirect setget set_max_redirect
 
-func resume(method, path, body="", headers=StringArray()):
+func _init(host="localhost", port=80, use_ssl=false):
+	self.host = host
+	self.port = port
+	self.use_ssl = use_ssl
+	self.client = HTTPClient.new()
+	self.verify_host = true
+	self.keep_open = false
+	self.max_redirect = 5
+
+func request(method, path, body="", headers=StringArray()):
 	_request(host, method, path, body, headers, use_ssl, verify_host)
 
 func close():
 	closed = true
-	if not listening:
+	if not streaming:
 		client.close()
 
-func enable_host_verification(enable):
+func should_verify_host(enable):
 	verify_host = enable
 
 func enable_ssl(enable):
@@ -41,28 +47,35 @@ func enable_ssl(enable):
 		port = 443
 	use_ssl = enable
 
-func is_host_verification_enabled():
-	return verify_host
+func should_keep_open(condition):
+	keep_open = condition
 
-func is_ssl_enabled():
-	return use_ssl
+func set_max_redirect(count):
+	max_redirect = count
+
+func get_host():
+	return host
+
+func get_port():
+	return port
 
 func _request(host, method, path, body="", headers=StringArray(), use_ssl=false, verify_host=true):
 	requesting = true
 	closed = false
 	var response = _connect(host, port, use_ssl, verify_host)
-	if response.error != null:
+	if response.get_error() != null:
 		close()
-		emit_signal("completed_with_error", self, response)
+		emit_signal("request_on_error", self, response)
 	else:
 		client.request(method, path, headers, body)
 		response = _poll()
 		var success = _validate_response(response)
 		if not success:
 			close()
-			if response.error == null:
-				response.error = str("Responded with status code: ", response.status_code)
-			emit_signal("completed_with_error", self, response)
+			if response.get_error() == null:
+				var error = str("Responded with status code: ", response.get_status_code())
+				response.set_error(error)
+			emit_signal("request_on_error", self, response)
 		else:
 			var should_redirect = _will_redirect(response)
 			if should_redirect:
@@ -71,13 +84,13 @@ func _request(host, method, path, body="", headers=StringArray(), use_ssl=false,
 					close()
 					_redirect(response, method, body, headers)
 				else:
-					response.error = "Reached max redirect"
+					response.set_error("Reached max redirect")
 					close()
-					emit_signal("completed_with_error", self, response)
+					emit_signal("request_on_error", self, response)
 			else:
-				emit_signal("request_completed", self, response)
+				emit_signal("request_on_complete", self, response)
 				if keep_open:
-					_listen_stream_data()
+					_stream_data()
 				else:
 					close()
 
@@ -88,6 +101,7 @@ func _connect(host, port, use_ssl, verify_host):
 func _poll():
 	var status = -1
 	var current_status
+	var started = OS.get_unix_time()
 	while true:
 		client.poll()
 		current_status = client.get_status()
@@ -120,36 +134,33 @@ func _parse_body():
 	return response
 
 func _construct_response(body):
-	var response = http_response.new()
-	response.body = body
-	response.content_length = client.get_response_body_length()
-	response.status_code = client.get_response_code()
-	response.headers = client.get_response_headers_as_dictionary()
+	var status_code = client.get_response_code()
+	var header = client.get_response_headers_as_dictionary()
+	var response = HTTPResponse.new(body, status_code, header)
 	return response
 
 func _construct_error_reponse(error):
-	var response = http_response.new()
-	response.error = error
+	var response = HTTPResponse.new()
+	response.set_error(error)
 	return response
 
 func _validate_response(response):
-	if (response.status_code >= 400 or
-		response.error != null):
+	if (response.get_status_code() >= 400 or
+		response.get_error() != null):
 		return false
 	else:
 		return true
 
 func _will_redirect(response):
-	if (response.status_code == 301 or
-		response.status_code == 302 or
-		response.status_code == 307):
+	var status_code = response.get_status_code()
+	if status_code== 301 or status_code == 302 or status_code == 307:
 		return true
 	else:
 		return false
 
 func _redirect(response, method, body, headers):
-	var location = response.headers["Location"]
-	var url = http_url.new(location)
+	var location = response.get_header()["Location"]
+	var url = HTTPUrl.new(location)
 	var segments = url.parse_segments()
 	
 	var r_path = location
@@ -170,15 +181,14 @@ func _redirect(response, method, body, headers):
 	
 	if segments.has("scheme"):
 		var scheme = segments["scheme"]
-		if scheme == "https":
+		if url.is_ssl_enable(scheme):
 			r_port = 443
 			r_use_ssl = true
 	
 	_request(r_host, method, r_path, body, headers, r_use_ssl, verify_host)
 
-func _listen_stream_data():
-	print("http_request START listening")
-	listening = true
+func _stream_data():
+	streaming = true
 	while (not closed and
 			client.poll() == OK and
 			client.get_status() == HTTPClient.STATUS_CONNECTED):
@@ -186,7 +196,7 @@ func _listen_stream_data():
 		var bytes = data[1]
 		var err = data[0]
 		if err == OK and bytes.size() > 0:
-			emit_signal("did_receive_data", self, bytes)
-	listening = false
-	emit_signal("on_finish_listening", self)
-	print("http_request FINISH listening")
+			emit_signal("request_on_receive", self, bytes)
+	streaming = false
+	emit_signal("request_on_stop_streaming", self)
+	close()
