@@ -3,14 +3,20 @@ extends Reference
 
 signal on_finish(expectation)
 
-var test_suite
-var test_method
-var expectation_name
+var suite = null
+var case = null
+var name = null
 
-func _init(suite, method, name):
-	test_suite = suite
-	test_method = method
-	expectation_name = name
+func _init(suite, case, name):
+	self.suite = suite
+	self.case = case
+	self.name = name
 
 func get_name():
-	return expectation_name
+	return name
+
+func get_suite():
+	return suite
+
+func get_case():
+	return case

@@ -39,9 +39,9 @@ func _run_test_cases(tests):
 func _evaluate():
 	if not has_expectations() and not _has_error():
 		if _is_succeeded():
-			print("[", get_name(), "] TEST SUCCESS")
+			_print_message("TEST SUCCESS")
 		else:
-			print("[", get_name(), "] TEST FAIL: ", fail)
+			_print_message(str("TEST FAIL: ", fail))
 
 func _sanitize_selected_test_cases():
 	# Array of non-empty test cases
