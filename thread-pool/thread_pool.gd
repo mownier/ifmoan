@@ -1,6 +1,10 @@
 
 extends Reference
 
+signal pool_on_idle(pool)
+signal pool_on_fulfill(pool, task)
+signal pool_on_execute(pool, task)
+
 var thread_pool_worker = preload("thread_pool_worker.gd")
 
 var mutex = Mutex.new()
@@ -33,6 +37,11 @@ func _on_finish_working(worker):
 		working_workers.erase(worker)
 	
 	mutex.unlock()
+	
+	emit_signal("pool_on_fulfill", self, worker.get_task())
+	
+	if is_idle():
+		emit_signal("pool_on_idle", self)
 
 func _start_pool(data):
 	while not is_terminated():
@@ -49,7 +58,10 @@ func _start_pool(data):
 				
 				mutex.unlock()
 				
+				emit_signal("pool_on_execute", self, task)
 				worker.execute(task)
+		OS.delay_msec(100)
+	
 	mutex.lock()
 	thread.wait_to_finish()
 	mutex.unlock()
