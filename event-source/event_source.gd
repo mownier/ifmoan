@@ -1,11 +1,11 @@
 
 extends Reference
 
-signal on_open(source)
-signal on_message(source, id, data)
-signal on_error(source, error)
-signal on_handle_event(source, id, event, data)
-signal on_close(source)
+signal source_on_open(source)
+signal source_on_message(source, id, data)
+signal source_on_error(source, error)
+signal source_on_event(source, id, event, data)
+signal source_on_close(source)
 
 const STATE_CONNECTING = 0
 const STATE_OPEN = 1
@@ -14,48 +14,45 @@ const STATE_CLOSING = 3
 
 const RECONNECT_MAX = 5
 
+var Request = preload("../http-request/http_request.gd")
+
 var http_request
-var ready_state
-var headers
 var host
-var received_buffer
-var path
+var last_event_id
+var ready_state = STATE_CLOSED
+var path = "/"
+var received_buffer = RawArray()
 var reconnect_count = 0
 var retry_time = 3000 # TODO: Implement retry time
-var last_event_id
-var http_reqest_res = preload("res://ifmoan/http-request/http_request.gd")
+var headers = ["Accept: text/event-stream"]
 
-func _init(host, path="/", headers=StringArray(), ssl_enable=false, port=80):
+func _init(host, port=80, ssl_enable=false):
 	self.host = host
-	self.path = path
-	self.headers = headers
-	self.ready_state = STATE_CLOSED
-	self.received_buffer = RawArray()
 	self.http_request = _create_request(host, ssl_enable, port)
 
-func _create_request(host, ssl_enable=false, port=80):
-	var request = http_reqest_res.new(host)
+func _create_request(host, port=80, ssl_enable=false):
+	var request = Request.new(host)
 	request.port = port
 	request.enable_ssl(ssl_enable)
-	request.connect("request_completed", self, "_request_completed")
-	request.connect("did_receive_data", self, "_did_receive_data")
-	request.connect("completed_with_error", self, "_completed_with_error")
-	request.connect("on_finish_listening", self, "_on_finish_listening")
+	request.connect("request_on_complete", self, "_request_on_complete")
+	request.connect("request_on_receive", self, "_request_on_receive")
+	request.connect("request_on_error", self, "_request_on_error")
+	request.connect("request_on_stop_streaming", self, "_request_on_stop_streaminglistening")
 	request.keep_open = true
 	return request
 
-func _request_completed(request, response):
+func _request_on_complete(request, response):
 	ready_state = STATE_OPEN
-	emit_signal("on_open", self)
+	emit_signal("source_on_open", self)
 
-func _completed_with_error(request, response):
+func _request_on_error(request, response):
 	ready_state = STATE_CLOSED
-	emit_signal("on_error", self, response.error)
+	emit_signal("source_on_error", self, response.error)
 	
 	if reconnect_count == RECONNECT_MAX:
 		_reconnect()
 
-func _did_receive_data(request, data):
+func _request_on_receive(request, data):
 	if ready_state == STATE_OPEN:
 		if data.size() > 0:
 			for d in data:
@@ -63,9 +60,9 @@ func _did_receive_data(request, data):
 			var events = _extract_events()
 			_parse_events(events)
 
-func _on_finish_listening(request):
+func _request_on_stop_streaming(request):
 	ready_state = STATE_CLOSED
-	emit_signal("on_close", self)
+	emit_signal("source_on_close", self)
 
 func _extract_events():
 	var size = received_buffer.size()
@@ -89,10 +86,10 @@ func _parse_events(events):
 		if evt.has("data"):
 			var data = evt["data"]
 			if not evt.has("event"):
-				emit_signal("on_message", self, last_event_id, data)
+				emit_signal("source_on_message", self, last_event_id, data)
 			else:
 				var event = evt["event"]
-				emit_signal("on_handle_event", self, last_event_id, event, data)
+				emit_signal("source_on_event", self, last_event_id, event, data)
 
 func _parse_event(event_string):
 	var event = {}
@@ -111,14 +108,19 @@ func _reconnect():
 	reconnect_count += 1
 	start()
 
+func add_header(header):
+	headers.push_back(header)
+
+func set_path(what):
+	path = what
+
 func get_state():
 	return ready_state
 
 func start():
 	ready_state = STATE_CONNECTING
-	http_request.resume(HTTPClient.METHOD_GET, path, "", headers)
+	http_request.request(HTTPClient.METHOD_GET, path, "", headers)
 
 func stop():
 	ready_state = STATE_CLOSING
 	http_request.close()
-
