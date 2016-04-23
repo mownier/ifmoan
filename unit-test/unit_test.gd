@@ -13,7 +13,7 @@ func _ready():
 	get_suites()
 	sanitize_selected_suites()
 	
-	if run_all_suites:
+	if will_run_all():
 		for suite in suites:
 			run_suite(suite)
 	elif will_run_only_one_suite():
@@ -101,6 +101,12 @@ func has_suite(name):
 		if not name.empty():
 			print("ERROR: ", name, " does not exist.")
 	return ok
+
+func will_run_all():
+	var ok = false
+	if suites.size() > 0:
+		ok = true
+	return ok and run_all_suites
 
 func will_run_selected_suites():
 	var ok = false
