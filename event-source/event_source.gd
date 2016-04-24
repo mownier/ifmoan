@@ -23,22 +23,20 @@ var ready_state = STATE_CLOSED
 var path = "/"
 var received_buffer = RawArray()
 var reconnect_count = 0
-var retry_time = 3000 # TODO: Implement retry time
+var retry_time = 3000 # 3 seconds
 var headers = ["Accept: text/event-stream"]
 
 func _init(host, port=80, ssl_enable=false):
 	self.host = host
-	self.http_request = _create_request(host, ssl_enable, port)
+	self.http_request = _create_request(host, port, ssl_enable)
 
 func _create_request(host, port=80, ssl_enable=false):
-	var request = Request.new(host)
-	request.port = port
-	request.enable_ssl(ssl_enable)
+	var request = Request.new(host, port, ssl_enable)
 	request.connect("request_on_complete", self, "_request_on_complete")
 	request.connect("request_on_receive", self, "_request_on_receive")
 	request.connect("request_on_error", self, "_request_on_error")
-	request.connect("request_on_stop_streaming", self, "_request_on_stop_streaminglistening")
-	request.keep_open = true
+	request.connect("request_on_stop_streaming", self, "_request_on_stop_streaming")
+	request.should_keep_open(true)
 	return request
 
 func _request_on_complete(request, response):
@@ -46,11 +44,18 @@ func _request_on_complete(request, response):
 	emit_signal("source_on_open", self)
 
 func _request_on_error(request, response):
-	ready_state = STATE_CLOSED
-	emit_signal("source_on_error", self, response.error)
-	
-	if reconnect_count == RECONNECT_MAX:
+	stop()
+	if reconnect_count <= RECONNECT_MAX:
+		var error = response.get_error()
+		if (response.get_body() != null and 
+			response.get_body().size() > 0):
+			error = response.get_body().get_string_from_utf8()
+		emit_signal("source_on_error", self, error)
+		OS.delay_msec(retry_time)
 		_reconnect()
+	else:
+		emit_signal("source_on_error", self, "Reached max reconnections.")
+
 
 func _request_on_receive(request, data):
 	if ready_state == STATE_OPEN:
@@ -82,13 +87,13 @@ func _parse_events(events):
 	for event_string in events:
 		var evt = _parse_event(event_string)
 		if evt.has("id"):
-			last_event_id = evt["id"]
+			last_event_id = evt["id"].strip_edges()
 		if evt.has("data"):
-			var data = evt["data"]
+			var data = evt["data"].strip_edges()
 			if not evt.has("event"):
 				emit_signal("source_on_message", self, last_event_id, data)
 			else:
-				var event = evt["event"]
+				var event = evt["event"].strip_edges()
 				emit_signal("source_on_event", self, last_event_id, event, data)
 
 func _parse_event(event_string):
