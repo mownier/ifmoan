@@ -189,14 +189,15 @@ func _redirect(response, method, body, headers):
 
 func _stream_data():
 	streaming = true
-	while (not closed and
-			client.poll() == OK and
-			client.get_status() == HTTPClient.STATUS_CONNECTED):
+	while not closed:
 		var data = client.get_connection().get_data(1)
 		var bytes = data[1]
 		var err = data[0]
-		if err == OK and bytes.size() > 0:
-			emit_signal("request_on_receive", self, bytes)
+		if err == OK:
+			if bytes.size() > 0:
+				emit_signal("request_on_receive", self, bytes)
+		else:
+			break
 	streaming = false
 	emit_signal("request_on_stop_streaming", self)
 	close()
