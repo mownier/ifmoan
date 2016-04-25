@@ -90,8 +90,9 @@ func add_task(task):
 	mutex.unlock()
 
 func start():
-	terminated = false
-	thread.start(self, "_start_pool")
+	if is_terminated():
+		terminated = false
+		thread.start(self, "_start_pool")
 
 func terminate():
 	mutex.lock()
