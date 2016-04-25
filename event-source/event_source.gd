@@ -17,7 +17,6 @@ const RECONNECT_MAX = 5
 var Request = preload("../http-request/http_request.gd")
 
 var http_request
-var host
 var last_event_id
 var ready_state = STATE_CLOSED
 var path = "/"
@@ -26,12 +25,11 @@ var reconnect_count = 0
 var retry_time = 3000 # 3 seconds
 var headers = ["Accept: text/event-stream"]
 
-func _init(host, port=80, ssl_enable=false):
-	self.host = host
-	self.http_request = _create_request(host, port, ssl_enable)
+func _init(host, port=80):
+	self.http_request = _create_request(host, port)
 
-func _create_request(host, port=80, ssl_enable=false):
-	var request = Request.new(host, port, ssl_enable)
+func _create_request(host, port=80):
+	var request = Request.new(host, port)
 	request.connect("request_on_complete", self, "_request_on_complete")
 	request.connect("request_on_receive", self, "_request_on_receive")
 	request.connect("request_on_error", self, "_request_on_error")
@@ -112,6 +110,9 @@ func _parse_event(event_string):
 func _reconnect():
 	reconnect_count += 1
 	start()
+
+func enable_ssl(enable):
+	http_request.enable_ssl(enable)
 
 func add_header(header):
 	headers.push_back(header)
