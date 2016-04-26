@@ -159,6 +159,7 @@ func _will_redirect(response):
 		return false
 
 func _redirect(response, method, body, headers):
+
 	var location = response.get_header()["Location"]
 	var url = HTTPUrl.new(location)
 	var segments = url.parse_segments()
@@ -171,7 +172,7 @@ func _redirect(response, method, body, headers):
 	if segments.has("path"):
 		r_path = segments["path"]
 		if segments.has("query"):
-			r_path += segments["query"]
+			r_path += str("?", segments["query"])
 	
 	if segments.has("host"):
 		r_host = segments["host"]
@@ -181,7 +182,7 @@ func _redirect(response, method, body, headers):
 	
 	if segments.has("scheme"):
 		var scheme = segments["scheme"]
-		if url.is_ssl_enable(scheme):
+		if url.is_ssl_enabled(scheme):
 			r_port = 443
 			r_use_ssl = true
 	
