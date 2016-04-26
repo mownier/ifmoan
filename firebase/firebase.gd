@@ -16,6 +16,7 @@ var Task = preload("res://ifmoan/thread-pool/thread_pool_task.gd")
 var url
 var host
 var pool
+var auth
 
 func _init(app_url):
 	self.url = HTTPUrl.new(app_url)
@@ -23,35 +24,49 @@ func _init(app_url):
 	self.request_header.append(_get_user_agent_header())
 
 func get(path, query=""):
-	var request_path = str(path, ".json/", query)
+	var request_path = _construct_path(path, query)
 	return _request(HTTPClient.METHOD_GET, request_path, request_header)
 
 func post(path, body=""):
-	var request_path = str(path, ".json")
+	var request_path = _construct_path(path)
 	return _request(HTTPClient.METHOD_POST, request_path, request_header, body)
 
 func put(path, body=""):
-	var request_path = str(path, ".json")
+	var request_path = _construct_path(path)
 	return _request(HTTPClient.METHOD_PUT, request_path, request_header, body)
 
 func delete(path, query=""):
-	var request_path = str(path, ".json/", query)
+	var request_path = _construct_path(path, query)
 	return _request(HTTPClient.METHOD_DELETE, request_path, request_header)
 
 func patch(path, body=""):
-	var request_path = str(path, ".json")
+	var request_path = _construct_path(path)
 	var header = request_header
 	header.append("X-HTTP-Method-Override: PATCH")
 	return _request(HTTPClient.METHOD_PUT, request_path, header, body)
 
 func listen(path):
 	var source = _create_source(path)
-	var task = Task.new(source, "start")
-	pool.add_task(task)
+	if pool != null:
+		var task = Task.new(source, "start")
+		pool.add_task(task)
+	else:
+		source.start()
 	return source
 
 func set_pool(thread_pool):
 	pool = thread_pool
+
+func set_auth(token):
+	auth = token
+
+func _construct_path(path, query=""):
+	var request_path = str(path, ".json")
+	if auth != null and not auth.empty():
+		request_path = str(request_path, "?auth=", auth)
+	if query != null and not query.empty():
+		request_path = str(request_path, "&", query)
+	return request_path
 
 func _request(method, path, header=StringArray(), body=""):
 	var request = _create_request()
@@ -71,7 +86,7 @@ func _create_request():
 	return request
 
 func _create_source(path):
-	var source_path = str(path, ".json")
+	var source_path = _construct_path(path)
 	var source = EventSource.new(host)
 	source.enable_ssl(true)
 	source.set_path(source_path)
@@ -79,6 +94,7 @@ func _create_source(path):
 	source.connect("source_on_event", self, "_source_on_event")
 	source.connect("source_on_message", self, "_source_on_message")
 	source.connect("source_on_close", self, "_source_on_close")
+	source.connect("source_on_error", self, "_source_on_error")
 	return source
 
 func _get_user_agent_header():
@@ -118,11 +134,12 @@ func _get_response_info(response):
 		if body.size() == 0 and response.has_error():
 			info = response.get_error()
 		else:
-			info = body.get_string_from_utf8()
-			if info.is_valid_integer():
-				info = info.to_int()
-			elif info.is_valid_float():
-				info = info.to_float()
+			if string.is_valid_integer():
+				info = string.to_int()
+			elif string.is_valid_float():
+				info = string.to_float()
+			elif string != "null":
+				info = string
 	return info
 
 func _request_on_complete(request, response):
@@ -141,3 +158,6 @@ func _source_on_message(source, id, data):
 
 func _source_on_close(source):
 	emit_signal("firebase_on_stop_streaming", self)
+
+func _source_on_error(source, error):
+	print("source error: ", error)
