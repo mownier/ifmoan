@@ -60,7 +60,7 @@ func _evaluate():
 			else:
 				_print_message(str("TEST FAIL: ", fail))
 		emit_signal("suite_on_finish", self)
-		on_stop()
+		suite_on_stop()
 
 func _sanitize_selected_test_cases():
 	# Array of non-empty test cases
@@ -207,7 +207,7 @@ func teardown():
 	pass
 
 func run():
-	on_start()
+	suite_on_start()
 	if run_all_test_cases:
 		_run_test_cases(test_cases)
 	elif _will_run_only_one_test_case():
@@ -216,10 +216,10 @@ func run():
 		_run_test_cases(selected_test_cases)
 	_evaluate()
 
-func on_start():
+func suite_on_start():
 	pass
 
-func on_stop():
+func suite_on_stop():
 	pass
 
 func add_expectation(expectation):
