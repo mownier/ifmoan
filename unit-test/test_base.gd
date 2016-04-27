@@ -22,6 +22,8 @@ var expecting = 0
 var assertions = 0
 var assert_fail = 0
 
+var executed_cases = Array()
+
 var info = {}
 
 func _ready():
@@ -41,6 +43,7 @@ func _run_test_case(test_case):
 	teardown()
 
 func _run_test_cases(tests):
+	executed_cases = Array(tests)
 	if tests.size() == 0:
 		_raise_error("0 test cases executed")
 	else:
@@ -52,8 +55,11 @@ func _run_test_cases(tests):
 			elif info[test_case] == TEST_EXPECTING:
 				_on_expecting(test_case)
 
+func _is_completed():
+	return (success + fail) == executed_cases.size()
+
 func _evaluate():
-	if not _has_expectations():
+	if _is_completed():
 		if not has_error():
 			if _is_succeeded():
 				_print_message("TEST SUCCESS")
@@ -125,6 +131,12 @@ func _has_test_case(test_case):
 		_raise_error(message)
 	return ok
 
+func _will_run_all():
+	var ok = false
+	if test_cases.size() > 0:
+		ok = true
+	return ok and run_all_test_cases
+
 func _will_run_only_one_test_case():
 	var ok = false
 	if _has_test_case(run_only_test_case):
@@ -192,7 +204,7 @@ func get_failed_assertion_count():
 	return assert_fail
 
 func get_test_case_count():
-	return test_cases.size()
+	return executed_cases.size()
 
 func get_expectation_count():
 	return expecting
@@ -208,7 +220,7 @@ func teardown():
 
 func run():
 	suite_on_start()
-	if run_all_test_cases:
+	if _will_run_all():
 		_run_test_cases(test_cases)
 	elif _will_run_only_one_test_case():
 		_run_test_cases([run_only_test_case])
