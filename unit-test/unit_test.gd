@@ -6,6 +6,7 @@ export var run_all_suites = true
 export var run_only_suite = ""
 export var selected_suites = StringArray()
 
+var executed_suites = Array()
 var suites = Array()
 var completed = 0
 
@@ -14,15 +15,21 @@ func _ready():
 	sanitize_selected_suites()
 	
 	if will_run_all():
-		for suite in suites:
-			run_suite(suite)
+		run_suites(suites)
 	elif will_run_only_one_suite():
-		run_suite(run_only_suite)
+		run_suites([run_only_suite])
 	elif will_run_selected_suites():
-		for suite in selected_suites:
-			run_suite(suite)
+		run_suites(selected_suites)
 	else:
-		print("ERROR: 0 test suites executed.")
+		print_nothing_executed()
+
+func run_suites(test_suites):
+	executed_suites = Array(test_suites)
+	if test_suites.size() == 0:
+		print_nothing_executed()
+	else:
+		for test_suite in test_suites:
+			run_suite(test_suite)
 
 func get_suites():
 	for suite in get_children():
@@ -36,7 +43,16 @@ func suite_on_finish(suite):
 		print_summary()
 
 func should_print_summary():
-	return completed == suites.size()
+	return completed == executed_suites.size()
+
+func print_nothing_executed():
+	print_error("0 test suites executed.")
+
+func print_nonexisting_suite(suite):
+	print_error(str(suite, " test suite does not exist."))
+
+func print_error(message):
+	print("ERROR: ", message)
 
 func print_summary():
 	var success = 0
@@ -46,8 +62,8 @@ func print_summary():
 	var expectation = 0
 	var fail_assert = 0
 	var errors = 0
-	var suite_count = suites.size()
-	for name in suites:
+	var suite_count = executed_suites.size()
+	for name in executed_suites:
 		var suite = get_node(name)
 		if suite.has_error():
 			errors += 1
@@ -99,7 +115,7 @@ func has_suite(name):
 	if suites.find(name) < 0:
 		ok = false
 		if not name.empty():
-			print("ERROR: ", name, " does not exist.")
+			print_nonexisting_suite(name)
 	return ok
 
 func will_run_all():
