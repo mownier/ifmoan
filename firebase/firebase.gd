@@ -1,10 +1,10 @@
 
 extends Reference
 
-signal firebase_on_success(firebase, info)
-signal firebase_on_error(firebase, info)
-signal firebase_on_stream(firebase, event, data)
-signal firebase_on_stop_streaming(firebase)
+signal firebase_on_success(firebase, request, info)
+signal firebase_on_error(firebase, object, error)
+signal firebase_on_stream(firebase, source, event, data)
+signal firebase_on_stop(firebase, source)
 
 var request_header = ["Accept: */*"]
 
@@ -12,6 +12,8 @@ var HTTPUrl = preload("res://ifmoan/http-request/http_url.gd")
 var Request = preload("res://ifmoan/http-request/http_request.gd")
 var EventSource = preload("res://ifmoan/event-source/event_source.gd")
 var Task = preload("res://ifmoan/thread-pool/thread_pool_task.gd")
+
+var pending = [] # Pending operation
 
 var url
 var host
@@ -51,8 +53,24 @@ func listen(path):
 		var task = Task.new(source, "start")
 		pool.add_task(task)
 	else:
-		source.start()
+		pending.push_back({"object": source, "method": "start", "args": []})
 	return source
+
+func resume(object):
+	if object != null: 
+		var operation
+		var i = -1
+		for op in pending:
+			i += 1
+			if op["object"] == object:
+				operation = op
+				break
+		if operation != null and i > -1:
+			pending.remove(i)
+			var obj = operation["object"]
+			var method = operation["method"]
+			var args = operation["args"]
+			obj.callv(method, args)
 
 func set_pool(thread_pool):
 	pool = thread_pool
@@ -75,7 +93,7 @@ func _request(method, path, header=StringArray(), body=""):
 		var task = Task.new(request, "request", args)
 		pool.add_task(task)
 	else:
-		request.callv("request", args)
+		pending.push_back({"object": request, "method": "request", "args": args})
 	return request
 
 func _create_request():
@@ -144,20 +162,20 @@ func _get_response_info(response):
 
 func _request_on_complete(request, response):
 	var info = _get_response_info(response)
-	emit_signal("firebase_on_success", self, info)
+	emit_signal("firebase_on_success", self, request, info)
 
 func _request_on_error(request, response):
 	var info = _get_response_info(response)
-	emit_signal("firebase_on_error", self, info)
+	emit_signal("firebase_on_error", self, request, info)
 
 func _source_on_event(source, id, event, data):
-	emit_signal("firebase_on_stream", self, event, data)
+	emit_signal("firebase_on_stream", self, source, event, data)
 
 func _source_on_message(source, id, data):
-	emit_signal("firebase_on_stream", self, "message", data)
+	emit_signal("firebase_on_stream", self, source, "message", data)
 
 func _source_on_close(source):
-	emit_signal("firebase_on_stop_streaming", self)
+	emit_signal("firebase_on_stop", self, source)
 
 func _source_on_error(source, error):
-	print("source error: ", error)
+	emit_signal("firebase_on_error", source, error)
