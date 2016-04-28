@@ -3,6 +3,11 @@ tool
 extends Node
 
 signal suite_on_finish(suite)
+signal case_on_start(suite, case)
+signal case_on_success(suite, case)
+signal case_on_fail(suite, case)
+signal case_on_expecting(suite, case)
+signal case_on_error(suite, error)
 
 const TEST_SUCCESS = 0
 const TEST_EXPECTING = 1
@@ -48,6 +53,7 @@ func _run_test_cases(tests):
 		_raise_error("0 test cases executed")
 	else:
 		for test_case in tests:
+			emit_signal("case_on_start", get_name(), test_case)
 			info[test_case] = TEST_SUCCESS
 			_run_test_case(test_case)
 			if info[test_case] == TEST_SUCCESS:
@@ -109,6 +115,7 @@ func _print_message(message):
 	print("[", get_name(), "] ", message)
 
 func _raise_error(message):
+	emit_signal("case_on_error", get_name(), message)
 	error += 1
 	_print_message(str("ERROR: ", message))
 
@@ -160,10 +167,12 @@ func _on_assert_fail(message, case=""):
 	_on_fail(message, case)
 
 func _on_success(test_case):
+	emit_signal("case_on_success", get_name(), test_case)
 	success += 1
 	_print_success_message(test_case)
 
 func _on_expecting(test_case):
+	emit_signal("case_on_expecting", get_name(), test_case)
 	expecting += 1
 	_print_expecting_message(test_case)
 
@@ -171,6 +180,9 @@ func _on_fail(message, case=""):
 	var test_case = case
 	if test_case.empty():
 		test_case = current_test_case
+	
+	emit_signal("case_on_fail", get_name(), test_case)
+	
 	if info[test_case] != TEST_FAIL:
 		fail += 1
 	info[test_case] = TEST_FAIL
