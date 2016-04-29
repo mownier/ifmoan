@@ -178,4 +178,4 @@ func _source_on_close(source):
 	emit_signal("firebase_on_stop", self, source)
 
 func _source_on_error(source, error):
-	emit_signal("firebase_on_error", source, error)
+	emit_signal("firebase_on_error", self, source, error)
