@@ -146,6 +146,8 @@ func _get_response_info(response):
 	if _is_valid_json(string):
 		info = Dictionary()
 		info.parse_json(string)
+		if response.has_error() and info.has("error"):
+			info = info["error"]
 	elif _is_valid_string(string):
 		info = _extract_string(string)
 	else:
