@@ -127,6 +127,7 @@ func _poll():
 				return _construct_response(status)
 			if status == HTTPClient.STATUS_BODY:
 				return _parse_body()
+		OS.delay_msec(100)
 
 func _parse_body():
 	var body = client.read_response_body_chunk()
