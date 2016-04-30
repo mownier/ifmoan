@@ -8,10 +8,10 @@ signal firebase_on_stop(firebase, source)
 
 var request_header = ["Accept: */*"]
 
-var HTTPUrl = preload("res://ifmoan/http-request/http_url.gd")
-var Request = preload("res://ifmoan/http-request/http_request.gd")
-var EventSource = preload("res://ifmoan/event-source/event_source.gd")
-var Task = preload("res://ifmoan/thread-pool/thread_pool_task.gd")
+var HTTPUrl = preload("../http-request/http_url.gd")
+var Request = preload("../http-request/http_request.gd")
+var EventSource = preload("../event-source/event_source.gd")
+var Task = preload("../thread-pool/thread_pool_task.gd")
 
 var pending = [] # Pending operation
 
