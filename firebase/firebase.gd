@@ -22,7 +22,7 @@ var auth
 
 func _init(app_url):
 	self.url = HTTPUrl.new(app_url)
-	self.host = url.parse_segments()["host"]
+	self.host = url.get_host()
 	self.request_header.append(_get_user_agent_header())
 
 func get(path, query=""):
