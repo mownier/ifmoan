@@ -54,7 +54,6 @@ func _request_on_error(request, response):
 	else:
 		emit_signal("source_on_error", self, "Reached max reconnections.")
 
-
 func _request_on_receive(request, data):
 	if ready_state == STATE_OPEN:
 		if data.size() > 0:
