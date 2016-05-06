@@ -191,15 +191,18 @@ func _redirect(response, method, body, headers):
 
 func _stream_data():
 	streaming = true
-	while not closed:
-		var data = client.get_connection().get_data(1)
+	var conn = client.get_connection()
+	var status
+	if conn.has_method("accept"):
+		status = StreamPeerSSL.STATUS_CONNECTED
+	else:
+		status = StreamPeerTCP.STATUS_CONNECTED
+	while not closed and conn.get_status() == status:
+		var data = conn.get_data(1)
 		var bytes = data[1]
 		var err = data[0]
-		if err == OK:
-			if bytes.size() > 0:
-				emit_signal("request_on_receive", self, bytes)
-		else:
-			break
+		if err == OK and bytes.size() > 0:
+			emit_signal("request_on_receive", self, bytes)
 	streaming = false
 	emit_signal("request_on_stop_streaming", self)
 	close()
