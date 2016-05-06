@@ -113,6 +113,7 @@ func _create_source(path):
 	source.connect("source_on_message", self, "_source_on_message")
 	source.connect("source_on_close", self, "_source_on_close")
 	source.connect("source_on_error", self, "_source_on_error")
+	source.connect("source_on_open", self, "_source_on_open")
 	return source
 
 func _get_user_agent_header():
@@ -178,6 +179,9 @@ func _source_on_message(source, id, data):
 
 func _source_on_close(source):
 	emit_signal("firebase_on_stop", self, source)
+
+func _source_on_open(source):
+	print("source open...")
 
 func _source_on_error(source, error):
 	emit_signal("firebase_on_error", self, source, error)
