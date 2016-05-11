@@ -8,3 +8,4 @@ A collection of GDScript utility files.
 4. __event_source.gd__ - _Implemented the event source interface for server-sent events (SSE)_
 5. __test_base.gd__ - _A base class for a test suite (collection of test cases)_
 6. __unit_test.gd__ - _Handles the unit testing process_
+7. __storage.gd__ - _A wrapper for reading and writing persistent data to a file_
